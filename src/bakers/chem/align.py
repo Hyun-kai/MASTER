@@ -253,6 +253,93 @@ def merge_residues(
         print(f"[Merge Error] Failed to merge residues: {e}")
         return None, None
 
+def rotate_dihedral(coords: np.ndarray, mol: Chem.Mol, a: int, u: int, v: int, d: int, target_angle_deg: float, moving_indices: Optional[List[int]] = None) -> np.ndarray:
+    """
+    Rodrigues의 회전 공식(Rodrigues' rotation formula)을 사용하여 분자의 특정 이면각을 직접 비틉니다.
+    RDKit의 SetDihedralDeg가 비결합 회전축을 무시하는 버그를 방지합니다.
+
+    Args:
+        coords (np.ndarray): 전체 원자의 현재 3D 좌표 (N x 3)
+        mol (Chem.Mol): RDKit 분자 객체 (그래프 탐색용)
+        a, u, v, d (int): 이면각을 정의하는 4개의 원자 인덱스 (회전축은 u -> v)
+        target_angle_deg (float): 설정하고자 하는 목표 이면각 (도 단위)
+        moving_indices (Optional[List[int]]): 회전할 원자 인덱스 리스트. 
+            미리 계산하여 전달하면 RDKit 그래프 탐색(BFS)을 생략하여 성능이 대폭 향상됩니다.
+
+    Returns:
+        np.ndarray: 회전이 적용된 새로운 3D 좌표 배열
+    """
+    p_a = coords[a]
+    p_u = coords[u]
+    p_v = coords[v]
+    p_d = coords[d]
+
+    # 1. 현재 이면각(Dihedral) 계산
+    b1 = p_u - p_a
+    b2 = p_v - p_u
+    b3 = p_d - p_v
+
+    n1 = np.cross(b1, b2)
+    n2 = np.cross(b2, b3)
+    
+    n1_norm = np.linalg.norm(n1)
+    n2_norm = np.linalg.norm(n2)
+    b2_norm = np.linalg.norm(b2)
+    
+    # 특이점 방어 (원자가 일직선 상에 있거나, 결합 길이가 0인 경우 ZeroDivision 방지)
+    if n1_norm < 1e-5 or n2_norm < 1e-5 or b2_norm < 1e-5:
+        return coords.copy() # 참조 오염을 막기 위해 반드시 복사본 반환
+        
+    n1 /= n1_norm
+    n2 /= n2_norm
+
+    b2_u = b2 / b2_norm
+    m1 = np.cross(n1, b2_u)
+    
+    x = np.dot(n1, n2)
+    y = np.dot(m1, n2)
+    current_angle = np.degrees(np.arctan2(y, x))
+
+    # 2. 회전해야 할 각도 편차(Delta) 계산
+    delta_angle = target_angle_deg - current_angle
+
+    # 3. 회전시킬 원자 그룹(Moving Cluster) 파악 
+    # moving_indices가 제공되지 않은 경우에만 BFS 그래프 탐색 수행 (성능 최적화)
+    if moving_indices is None:
+        visited = set()
+        queue = [v]
+        while queue:
+            curr = queue.pop(0)
+            if curr not in visited:
+                visited.add(curr)
+                for nbr in mol.GetAtomWithIdx(curr).GetNeighbors():
+                    n_idx = nbr.GetIdx()
+                    if n_idx != u and n_idx not in visited:
+                        queue.append(n_idx)
+        moving_indices = list(visited)
+
+    # 4. Rodrigues 회전 행렬 적용 (축: u -> v)
+    axis = b2_u
+    theta = np.radians(delta_angle)
+
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+    
+    K = np.array([
+        [0, -axis[2], axis[1]],
+        [axis[2], 0, -axis[0]],
+        [-axis[1], axis[0], 0]
+    ])
+    
+    R = np.eye(3) * cos_theta + sin_theta * K + (1 - cos_theta) * np.outer(axis, axis)
+
+    # 5. 좌표 이동 -> 회전 적용 -> 원위치 복귀
+    new_coords = coords.copy()
+    vecs = new_coords[moving_indices] - p_u
+    new_coords[moving_indices] = np.dot(vecs, R.T) + p_u
+
+    return new_coords
+
 # ==============================================================================
 # [Debug & Verification]
 # ==============================================================================

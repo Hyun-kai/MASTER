@@ -28,11 +28,33 @@ import math
 import pickle
 import numpy as np
 from scipy.spatial import Delaunay
+from scipy.stats import qmc
 from timeit import default_timer
 from typing import Optional, Tuple, Callable, Union, List
 
 # Numpy math patch (Legacy support: 일부 구형 코드 호환성 유지)
 np.math = math
+
+def get_sobol_points(n_points: int, dims: int, low: float = -180.0, high: float = 180.0) -> np.ndarray:
+    """
+    고차원 공간의 균일한 초기 샘플링을 위해 Sobol 시퀀스(저원차 수열)를 생성합니다.
+    
+    Args:
+        n_points (int): 생성할 목표 샘플 개수
+        dims (int): 탐색할 차원 수 (자유도, DOFs)
+        low (float): 하한선 (기본값 -180.0도)
+        high (float): 상한선 (기본값 180.0도)
+        
+    Returns:
+        np.ndarray: 생성된 (n_points, dims) 형태의 초기 분포 배열
+    """
+    if n_points <= 0: 
+        return np.empty((0, dims))
+    
+    m = int(np.ceil(np.log2(n_points)))
+    sampler = qmc.Sobol(d=dims, scramble=True)
+    sample = sampler.random_base2(m=m)
+    return qmc.scale(sample, [low]*dims, [high]*dims)[:n_points]
 
 class BoltzmannAdaptiveSampler(object):
     """
