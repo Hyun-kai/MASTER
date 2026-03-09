@@ -9,6 +9,9 @@ scripts/1_prep.py
 * 본 스크립트는 실행 로직(Flow)만을 제어하며, 핵심 알고리즘은 src/bakers/pipeline 에 위치합니다.
 * 하드코딩된 Fallback(기본 아미노산)을 제거하여 사용자가 제공한 CSV 데이터만 엄격하게 신뢰합니다.
 
+[사용 모듈]
+io.py, monomer_runner.py, check_topology_grid.py
+
 [실행 방법]
 $ python scripts/1_prep.py --residues AIB DAL NME --max_rotamers 10
 """

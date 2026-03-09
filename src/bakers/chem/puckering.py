@@ -11,6 +11,10 @@ Ring Puckering(고리 유연성)과 하이브리드 샘플링을 통해, 단일 
 2. 초기 구조 임베딩 및 1차 다양성 확보 (Conformer Generation)
 3. 역장 기반 구조 최적화 및 에너지 계산 (Optimization & Energy - Multi-threading 적용)
 4. 최종 정예 구조 선별 (Clustering via metrics)
+
+[사용 모듈]
+metrics.py
+
 """
 
 import os

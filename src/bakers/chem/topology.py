@@ -12,6 +12,9 @@ src/bakers/chem/topology.py
   따른 절대적인 1:1 교차 맵핑을 영구적으로 보장합니다.
 - Performance & Safety: SMARTS 쿼리 전역 캐싱, BFS 큐(deque) 도입 및 
   원본 딕셔너리 보호(Immutability 지향) 로직이 적용되었습니다.
+
+[사용 모듈]
+capping.py
 """
 
 import os
